@@ -1,6 +1,5 @@
 package com.cleardragonf.hobpayments.commands;
 
-import net.minecraft.network.chat.Component;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -8,9 +7,9 @@ import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import com.cleardragonf.hobpayments.economy.EconomyManager;
-
-import java.util.function.Supplier;
 
 public class EconomyCommands {
     private static final EconomyManager economyManager = new EconomyManager();
@@ -18,23 +17,49 @@ public class EconomyCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(LiteralArgumentBuilder.<CommandSourceStack>literal("balance")
                 .executes(context -> {
-                    String playerName = String.valueOf(context.getSource().getPlayerOrException().getName());
+                    String playerName = context.getSource().getPlayerOrException().getName().getString();
                     double balance = economyManager.getBalance(playerName);
                     Component message = Component.literal("Your balance is: " + balance);
-                    context.getSource().sendSuccess((Supplier<Component>) message, false);
+                    context.getSource().sendSuccess(() -> message, false);
                     return Command.SINGLE_SUCCESS;
                 }));
 
         dispatcher.register(LiteralArgumentBuilder.<CommandSourceStack>literal("pay")
-                .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
-                        .executes(context -> {
-                            double amount = DoubleArgumentType.getDouble(context, "amount");
-                            String playerName = String.valueOf(context.getSource().getPlayerOrException().getName());
-                            economyManager.addBalance(playerName, amount);
-                            Component message = Component.literal("Paid: " + amount);
-                            context.getSource().sendSuccess((Supplier<Component>) message, false);
-                            return Command.SINGLE_SUCCESS;
-                        })));
+                .then(Commands.argument("player", StringArgumentType.word())
+                        .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
+                                .executes(context -> {
+                                    double amount = DoubleArgumentType.getDouble(context, "amount");
+                                    String payerName = context.getSource().getPlayerOrException().getName().getString();
+                                    String recipientName = StringArgumentType.getString(context, "player");
+
+                                    // Ensure the payer has enough balance
+                                    double payerBalance = economyManager.getBalance(payerName);
+                                    if (payerBalance < amount) {
+                                        Component message = Component.literal("Insufficient balance.");
+                                        context.getSource().sendSuccess(() -> message, false);
+                                        return Command.SINGLE_SUCCESS;
+                                    }
+
+                                    // Perform the transaction
+                                    economyManager.addBalance(recipientName, amount);
+                                    economyManager.subtractBalance(payerName, amount);
+
+                                    // Notify both payer and recipient
+                                    Component payerMessage = Component.literal("Paid: " + amount + " to " + recipientName);
+                                    context.getSource().sendSuccess(() -> payerMessage, false);
+
+                                    ServerPlayer recipient = context.getSource().getServer().getPlayerList().getPlayerByName(recipientName);
+                                    if (recipient != null) {
+                                        Component recipientMessage = Component.literal("Received: " + amount + " from " + payerName);
+                                        recipient.sendSystemMessage(recipientMessage); // Use sendSystemMessage to send message
+                                    } else {
+                                        // Handle case where recipient is not online
+                                        Component message = Component.literal("Player " + recipientName + " is not online.");
+                                        context.getSource().sendSuccess(() -> message, false);
+                                    }
+
+                                    return Command.SINGLE_SUCCESS;
+                                }))));
 
         // Command to set player balance, restricted to console only
         dispatcher.register(LiteralArgumentBuilder.<CommandSourceStack>literal("set")
@@ -46,7 +71,7 @@ public class EconomyCommands {
                                     double amount = DoubleArgumentType.getDouble(context, "amount");
                                     economyManager.setBalance(playerName, amount);
                                     Component message = Component.literal("Set balance of " + playerName + " to: " + amount);
-                                    context.getSource().sendSuccess((Supplier<Component>) message, false);
+                                    context.getSource().sendSuccess(() -> message, false);
                                     return Command.SINGLE_SUCCESS;
                                 }))));
     }
