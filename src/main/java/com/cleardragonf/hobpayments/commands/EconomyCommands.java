@@ -12,8 +12,6 @@ import net.minecraft.server.level.ServerPlayer;
 import com.cleardragonf.hobpayments.economy.EconomyManager;
 import com.cleardragonf.hobpayments.HOBPayments;
 
-import java.util.function.Supplier;
-
 public class EconomyCommands {
     private static final EconomyManager economyManager = HOBPayments.economyManager;
 
@@ -23,7 +21,7 @@ public class EconomyCommands {
                     String playerName = context.getSource().getPlayerOrException().getName().getString();
                     double balance = economyManager.getBalance(playerName);
                     Component message = Component.literal("Your balance is: " + balance);
-                    context.getSource().sendSuccess((Supplier<Component>) message, false);
+                    context.getSource().sendSuccess(() -> message, false);
                     return Command.SINGLE_SUCCESS;
                 }));
 
@@ -39,7 +37,7 @@ public class EconomyCommands {
                                     double payerBalance = economyManager.getBalance(payerName);
                                     if (payerBalance < amount) {
                                         Component message = Component.literal("Insufficient balance.");
-                                        context.getSource().sendSuccess((Supplier<Component>) message, false);
+                                        context.getSource().sendSuccess(() -> message, false);
                                         return Command.SINGLE_SUCCESS;
                                     }
 
@@ -49,16 +47,16 @@ public class EconomyCommands {
 
                                     // Notify both payer and recipient
                                     Component payerMessage = Component.literal("Paid: " + amount + " to " + recipientName);
-                                    context.getSource().sendSuccess((Supplier<Component>) payerMessage, false);
+                                    context.getSource().sendSuccess(() -> payerMessage, false);
 
                                     ServerPlayer recipient = context.getSource().getServer().getPlayerList().getPlayerByName(recipientName);
                                     if (recipient != null) {
                                         Component recipientMessage = Component.literal("Received: " + amount + " from " + payerName);
-                                        recipient.sendSystemMessage(recipientMessage); // Use sendSystemMessage to send message
+                                        recipient.sendSystemMessage(recipientMessage);
                                     } else {
                                         // Handle case where recipient is not online
                                         Component message = Component.literal("Player " + recipientName + " is not online.");
-                                        context.getSource().sendSuccess((Supplier<Component>) message, false);
+                                        context.getSource().sendSuccess(() -> message, false);
                                     }
 
                                     return Command.SINGLE_SUCCESS;
@@ -66,7 +64,7 @@ public class EconomyCommands {
 
         // Command to set player balance, restricted to console only
         dispatcher.register(LiteralArgumentBuilder.<CommandSourceStack>literal("set")
-                .requires(source -> source.getEntity() == null) // Ensure the command is run from the console
+//                .requires(source -> source.getEntity() == null) // Ensure the command is run from the console
                 .then(Commands.argument("player", StringArgumentType.word())
                         .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
                                 .executes(context -> {
@@ -74,7 +72,7 @@ public class EconomyCommands {
                                     double amount = DoubleArgumentType.getDouble(context, "amount");
                                     economyManager.setBalance(playerName, amount);
                                     Component message = Component.literal("Set balance of " + playerName + " to: " + amount);
-                                    context.getSource().sendSuccess((Supplier<Component>) message, false);
+                                    context.getSource().sendSuccess(() -> message, false);
                                     return Command.SINGLE_SUCCESS;
                                 }))));
     }
