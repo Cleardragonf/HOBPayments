@@ -1,6 +1,7 @@
 package com.cleardragonf.hobpayments;
 
 import com.cleardragonf.hobpayments.commands.EconomyCommands;
+import com.cleardragonf.hobpayments.economy.EconomyManager;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerStartingEvent;
@@ -15,6 +16,7 @@ import static com.cleardragonf.hobpayments.config.ModConfig.COMMON_SPEC;
 @Mod(HOBPayments.MODID)
 public class HOBPayments {
     public static final String MODID = "hobpayments";
+    public static final EconomyManager economyManager = new EconomyManager();
 
     public HOBPayments() {
         // Register the common setup method for modloading
@@ -23,7 +25,6 @@ public class HOBPayments {
         MinecraftForge.EVENT_BUS.addListener(this::onServerStarting);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, COMMON_SPEC);
-
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
